@@ -1,0 +1,512 @@
+/**
+ * app.js
+ * ------------------------------------------------------------
+ * 問卷系統核心邏輯（UI 渲染 / 驗證 / 送出）
+ * 題目內容一律讀取自 questions-data.js，本檔不含任何題目文字，
+ * 修改題目時完全不需要動到這支程式。
+ * ------------------------------------------------------------
+ */
+
+const APP_ROOT = document.getElementById('app');
+
+// ------------------------------------------------------------
+// 全域狀態
+// ------------------------------------------------------------
+const state = {
+  view: 'home',        // 'home' | 'survey' | 'submitting' | 'done' | 'error'
+  identity: null,       // 'employee' | 'manager' | 'l1manager'
+  sections: [],          // 該身分對應的 section 陣列
+  visibleSectionIdx: [], // 依 skipIf 條件計算出目前可見的 section 索引清單
+  currentStep: 0,        // 目前在 visibleSectionIdx 中的第幾步
+  answers: {},            // { field: value, field_other: value ... }
+  errors: {}               // { field: '錯誤訊息' }
+};
+
+// ------------------------------------------------------------
+// 工具函式
+// ------------------------------------------------------------
+function evalCondition(cond, answers) {
+  if (!cond) return false;
+  const val = answers[cond.field];
+  if ('equals' in cond) return val === cond.equals;
+  if ('notEquals' in cond) return val !== cond.equals && val !== undefined;
+  return false;
+}
+
+function computeVisibleSections() {
+  const list = [];
+  state.sections.forEach((sec, idx) => {
+    if (sec.skipIf && evalCondition(sec.skipIf, state.answers)) return;
+    list.push(idx);
+  });
+  state.visibleSectionIdx = list;
+  if (state.currentStep >= list.length) state.currentStep = list.length - 1;
+}
+
+function currentSection() {
+  const secIdx = state.visibleSectionIdx[state.currentStep];
+  return state.sections[secIdx];
+}
+
+function escapeHtml(str) {
+  if (str === undefined || str === null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ------------------------------------------------------------
+// 首頁：身分選擇
+// ------------------------------------------------------------
+function renderHome() {
+  APP_ROOT.innerHTML = `
+    <div class="home-screen">
+      <div class="home-card">
+        <div class="eyebrow">115年度績效考核流程</div>
+        <h1>${escapeHtml(CONFIG.SURVEY_TITLE)}</h1>
+        <p class="home-intro">${escapeHtml(CONFIG.SURVEY_INTRO)}</p>
+
+        <div class="identity-prompt">請選擇您本次填答的身分</div>
+        <div class="identity-grid" role="list">
+          ${IDENTITY_OPTIONS.map(opt => `
+            <button class="identity-card" role="listitem" data-identity="${opt.key}">
+              <span class="identity-title">${escapeHtml(opt.title)}</span>
+              <span class="identity-desc">${escapeHtml(opt.description)}</span>
+              <span class="identity-arrow" aria-hidden="true">→</span>
+            </button>
+          `).join('')}
+        </div>
+
+        <p class="home-footnote">選擇身分後將自動進入對應的問卷內容。</p>
+      </div>
+    </div>
+  `;
+
+  APP_ROOT.querySelectorAll('.identity-card').forEach(btn => {
+    btn.addEventListener('click', () => startSurvey(btn.dataset.identity));
+  });
+}
+
+function startSurvey(identityKey) {
+  state.identity = identityKey;
+  state.sections = QUESTION_SETS[identityKey];
+  state.answers = {};
+  state.errors = {};
+  state.currentStep = 0;
+  computeVisibleSections();
+  state.view = 'survey';
+  render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ------------------------------------------------------------
+// 問卷頁：題目渲染
+// ------------------------------------------------------------
+function renderQuestion(q) {
+  const errorMsg = state.errors[q.field];
+  const errorHtml = errorMsg ? `<div class="field-error" id="err-${q.field}">${escapeHtml(errorMsg)}</div>` : '';
+  const requiredMark = q.required ? '<span class="required-mark">＊</span>' : '';
+
+  let bodyHtml = '';
+
+  switch (q.type) {
+    case 'select': {
+      const val = state.answers[q.field] || '';
+      bodyHtml = `
+        <select class="field-select" data-field="${q.field}" aria-describedby="${errorMsg ? 'err-' + q.field : ''}">
+          <option value="" disabled ${val ? '' : 'selected'}>${escapeHtml(q.placeholder || '請選擇')}</option>
+          ${q.options.map(o => `<option value="${escapeHtml(o.value)}" ${val === o.value ? 'selected' : ''}>${escapeHtml(o.label)}</option>`).join('')}
+        </select>
+      `;
+      break;
+    }
+    case 'radio':
+    case 'scale': {
+      const val = state.answers[q.field];
+      bodyHtml = `
+        <div class="option-list" role="radiogroup" aria-describedby="${errorMsg ? 'err-' + q.field : ''}">
+          ${q.options.map((o, i) => {
+            const optId = `${q.field}__${i}`;
+            const checked = val === o.value ? 'checked' : '';
+            return `
+              <label class="option-item" for="${optId}">
+                <input type="radio" id="${optId}" name="${q.field}" value="${escapeHtml(o.value)}" data-field="${q.field}" data-type="radio" ${checked} />
+                <span class="option-label">${escapeHtml(o.label)}</span>
+              </label>
+            `;
+          }).join('')}
+        </div>
+      `;
+      break;
+    }
+    case 'checkbox': {
+      const val = Array.isArray(state.answers[q.field]) ? state.answers[q.field] : [];
+      const otherChecked = state.answers[q.field + '_other_checked'] === true;
+      const otherText = state.answers[q.field + '_other_text'] || '';
+      bodyHtml = `
+        <div class="option-list" aria-describedby="${errorMsg ? 'err-' + q.field : ''}">
+          ${q.options.map((o, i) => {
+            const optId = `${q.field}__${i}`;
+            const checked = val.includes(o.value) ? 'checked' : '';
+            return `
+              <label class="option-item" for="${optId}">
+                <input type="checkbox" id="${optId}" value="${escapeHtml(o.value)}" data-field="${q.field}" data-type="checkbox" ${checked} />
+                <span class="option-label">${escapeHtml(o.label)}</span>
+              </label>
+            `;
+          }).join('')}
+          ${q.other ? `
+            <label class="option-item option-item-other" for="${q.field}__other">
+              <input type="checkbox" id="${q.field}__other" data-field="${q.field}" data-type="checkbox-other-toggle" ${otherChecked ? 'checked' : ''} />
+              <span class="option-label">其他：</span>
+              <input type="text" class="other-text-input" data-field="${q.field}" data-type="other-text" placeholder="請說明" value="${escapeHtml(otherText)}" ${otherChecked ? '' : 'disabled'} />
+            </label>
+          ` : ''}
+        </div>
+      `;
+      break;
+    }
+    case 'textarea': {
+      const val = state.answers[q.field] || '';
+      bodyHtml = `
+        <textarea class="field-textarea" data-field="${q.field}" rows="3" placeholder="請輸入您的想法；若無，請填寫「無」" aria-describedby="${errorMsg ? 'err-' + q.field : ''}">${escapeHtml(val)}</textarea>
+      `;
+      break;
+    }
+  }
+
+  return `
+    <div class="question-block ${errorMsg ? 'has-error' : ''}" data-question-field="${q.field}">
+      <div class="question-label">
+        <span class="qcode">${escapeHtml(q.qcode)}</span>
+        <span class="qtext">${escapeHtml(q.label)}${requiredMark}</span>
+      </div>
+      ${bodyHtml}
+      ${errorHtml}
+    </div>
+  `;
+}
+
+function renderSurvey() {
+  const totalSteps = state.visibleSectionIdx.length;
+  const sec = currentSection();
+  const isLast = state.currentStep === totalSteps - 1;
+  const isFirst = state.currentStep === 0;
+  const progressPct = Math.round(((state.currentStep) / totalSteps) * 100) + Math.round((1 / totalSteps) * 30);
+
+  APP_ROOT.innerHTML = `
+    <div class="survey-screen">
+      <div class="survey-header">
+        <div class="survey-header-top">
+          <span class="identity-chip">${escapeHtml(IDENTITY_LABELS[state.identity])}</span>
+          <span class="step-indicator">第 ${state.currentStep + 1}／${totalSteps} 頁</span>
+        </div>
+        <div class="progress-track" role="progressbar" aria-valuenow="${progressPct}" aria-valuemin="0" aria-valuemax="100">
+          <div class="progress-fill" style="width:${Math.min(progressPct, 100)}%"></div>
+        </div>
+      </div>
+
+      <div class="survey-body">
+        <h2 class="section-title">${escapeHtml(sec.title)}</h2>
+        ${sec.description ? `<p class="section-desc">${escapeHtml(sec.description)}</p>` : ''}
+
+        <div class="question-group">
+          ${sec.questions.map(renderQuestion).join('')}
+        </div>
+      </div>
+
+      <div class="survey-footer">
+        <button class="btn btn-secondary" id="btn-prev" ${isFirst ? 'disabled' : ''}>上一步</button>
+        <button class="btn btn-primary" id="btn-next">${isLast ? '送出問卷' : '下一步'}</button>
+      </div>
+    </div>
+  `;
+
+  attachSurveyListeners(sec);
+}
+
+function attachSurveyListeners(sec) {
+  // select
+  APP_ROOT.querySelectorAll('select[data-field]').forEach(el => {
+    el.addEventListener('change', () => {
+      state.answers[el.dataset.field] = el.value;
+      clearError(el.dataset.field);
+    });
+  });
+
+  // radio
+  APP_ROOT.querySelectorAll('input[type="radio"][data-field]').forEach(el => {
+    el.addEventListener('change', () => {
+      if (el.checked) {
+        state.answers[el.dataset.field] = el.value;
+        clearError(el.dataset.field);
+        // role_detail 變動可能影響跳題邏輯，但不在此立即重算，等使用者按下一步再重新計算
+      }
+    });
+  });
+
+  // checkbox
+  APP_ROOT.querySelectorAll('input[type="checkbox"][data-type="checkbox"]').forEach(el => {
+    el.addEventListener('change', () => {
+      const field = el.dataset.field;
+      const cur = Array.isArray(state.answers[field]) ? state.answers[field].slice() : [];
+      if (el.checked) {
+        if (!cur.includes(el.value)) cur.push(el.value);
+      } else {
+        const idx = cur.indexOf(el.value);
+        if (idx > -1) cur.splice(idx, 1);
+      }
+      state.answers[field] = cur;
+      clearError(field);
+    });
+  });
+
+  // checkbox "other" toggle
+  APP_ROOT.querySelectorAll('input[data-type="checkbox-other-toggle"]').forEach(el => {
+    el.addEventListener('change', () => {
+      const field = el.dataset.field;
+      state.answers[field + '_other_checked'] = el.checked;
+      const textInput = APP_ROOT.querySelector(`input[data-type="other-text"][data-field="${field}"]`);
+      if (textInput) {
+        textInput.disabled = !el.checked;
+        if (el.checked) textInput.focus();
+      }
+      clearError(field);
+    });
+  });
+
+  // other text
+  APP_ROOT.querySelectorAll('input[data-type="other-text"]').forEach(el => {
+    el.addEventListener('input', () => {
+      state.answers[el.dataset.field + '_other_text'] = el.value;
+      clearError(el.dataset.field);
+    });
+  });
+
+  // textarea
+  APP_ROOT.querySelectorAll('textarea[data-field]').forEach(el => {
+    el.addEventListener('input', () => {
+      state.answers[el.dataset.field] = el.value;
+    });
+  });
+
+  document.getElementById('btn-prev').addEventListener('click', goPrev);
+  document.getElementById('btn-next').addEventListener('click', goNext);
+}
+
+function clearError(field) {
+  if (state.errors[field]) {
+    delete state.errors[field];
+    const block = APP_ROOT.querySelector(`[data-question-field="${field}"]`);
+    if (block) {
+      block.classList.remove('has-error');
+      const errEl = block.querySelector('.field-error');
+      if (errEl) errEl.remove();
+    }
+  }
+}
+
+// ------------------------------------------------------------
+// 驗證
+// ------------------------------------------------------------
+function validateCurrentSection() {
+  const sec = currentSection();
+  const errors = {};
+  let firstErrorField = null;
+
+  sec.questions.forEach(q => {
+    if (!q.required) {
+      // 即使非必填，若複選題勾選了「其他」但沒填文字，仍視為錯誤
+      if (q.type === 'checkbox' && q.other) {
+        const otherChecked = state.answers[q.field + '_other_checked'] === true;
+        const otherText = (state.answers[q.field + '_other_text'] || '').trim();
+        if (otherChecked && !otherText) {
+          errors[q.field] = '請填寫「其他」欄位的說明內容';
+          if (!firstErrorField) firstErrorField = q.field;
+        }
+      }
+      return;
+    }
+
+    const val = state.answers[q.field];
+    let empty = false;
+
+    if (q.type === 'select' || q.type === 'radio' || q.type === 'scale') {
+      empty = val === undefined || val === null || val === '';
+    } else if (q.type === 'checkbox') {
+      const arr = Array.isArray(val) ? val : [];
+      const otherChecked = state.answers[q.field + '_other_checked'] === true;
+      empty = arr.length === 0 && !otherChecked;
+    } else if (q.type === 'textarea') {
+      empty = !val || String(val).trim() === '';
+    }
+
+    if (empty) {
+      errors[q.field] = q.type === 'textarea'
+        ? '此題為必填，若無請填寫「無」'
+        : '此題為必填，請完成作答';
+      if (!firstErrorField) firstErrorField = q.field;
+    }
+
+    if (q.type === 'checkbox' && q.other) {
+      const otherChecked = state.answers[q.field + '_other_checked'] === true;
+      const otherText = (state.answers[q.field + '_other_text'] || '').trim();
+      if (otherChecked && !otherText) {
+        errors[q.field] = '請填寫「其他」欄位的說明內容';
+        if (!firstErrorField) firstErrorField = q.field;
+      }
+    }
+  });
+
+  state.errors = errors;
+  return { valid: Object.keys(errors).length === 0, firstErrorField };
+}
+
+function goPrev() {
+  if (state.currentStep > 0) {
+    state.currentStep -= 1;
+    state.errors = {};
+    render();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+function goNext() {
+  const { valid, firstErrorField } = validateCurrentSection();
+  if (!valid) {
+    render();
+    const el = APP_ROOT.querySelector(`[data-question-field="${firstErrorField}"]`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  // 重新計算可見 section（角色可能剛在本頁選定，影響後續是否跳過面談段落）
+  computeVisibleSections();
+
+  const totalSteps = state.visibleSectionIdx.length;
+  const isLast = state.currentStep === totalSteps - 1;
+
+  if (isLast) {
+    submitSurvey();
+  } else {
+    state.currentStep += 1;
+    render();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+// ------------------------------------------------------------
+// 送出資料
+// ------------------------------------------------------------
+function buildPayload() {
+  const payload = {
+    timestamp: new Date().toISOString(),
+    identity: IDENTITY_LABELS[state.identity],
+    identity_key: state.identity
+  };
+
+  state.sections.forEach(sec => {
+    sec.questions.forEach(q => {
+      const raw = state.answers[q.field];
+
+      if (q.type === 'scale') {
+        const opt = q.options.find(o => o.value === raw);
+        payload[q.field + '_label'] = opt ? opt.label : '';
+        payload[q.field + '_score'] = opt && opt.value !== null ? opt.value : '';
+      } else if (q.type === 'checkbox') {
+        const arr = Array.isArray(raw) ? raw.slice() : [];
+        const otherChecked = state.answers[q.field + '_other_checked'] === true;
+        const otherText = (state.answers[q.field + '_other_text'] || '').trim();
+        if (otherChecked && otherText) arr.push('其他：' + otherText);
+        payload[q.field] = arr.join('；');
+        payload[q.field + '_other_text'] = otherChecked ? otherText : '';
+      } else {
+        payload[q.field] = raw !== undefined && raw !== null ? raw : '';
+      }
+    });
+  });
+
+  return payload;
+}
+
+function submitSurvey() {
+  state.view = 'submitting';
+  render();
+
+  const payload = buildPayload();
+
+  if (!CONFIG.GAS_WEB_APP_URL || CONFIG.GAS_WEB_APP_URL.indexOf('PASTE_YOUR') === 0) {
+    // 尚未設定後端網址：仍讓使用者看到完成頁，但於主控台提示開發者
+    console.warn('尚未設定 CONFIG.GAS_WEB_APP_URL，資料未送出到 Google Sheets。', payload);
+    state.view = 'done';
+    render();
+    return;
+  }
+
+  fetch(CONFIG.GAS_WEB_APP_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  })
+    .then(res => res.json().catch(() => ({ result: 'success' })))
+    .then(() => {
+      state.view = 'done';
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    })
+    .catch(err => {
+      console.error('送出失敗：', err);
+      state.view = 'error';
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+}
+
+// ------------------------------------------------------------
+// 送出中 / 完成頁 / 錯誤頁
+// ------------------------------------------------------------
+function renderSubmitting() {
+  APP_ROOT.innerHTML = `
+    <div class="status-screen">
+      <div class="spinner" aria-hidden="true"></div>
+      <p>正在送出您的回覆，請稍候...</p>
+    </div>
+  `;
+}
+
+function renderDone() {
+  APP_ROOT.innerHTML = `
+    <div class="status-screen">
+      <div class="done-icon" aria-hidden="true">✓</div>
+      <h2>感謝您完成填答</h2>
+      <p>您的回饋已送出，將直接用於改善明年度的績效考核流程。</p>
+    </div>
+  `;
+}
+
+function renderErrorScreen() {
+  APP_ROOT.innerHTML = `
+    <div class="status-screen">
+      <div class="error-icon" aria-hidden="true">!</div>
+      <h2>送出時發生問題</h2>
+      <p>網路連線可能不穩定，請確認網路狀態後再試一次。</p>
+      <button class="btn btn-primary" id="btn-retry">重新送出</button>
+    </div>
+  `;
+  document.getElementById('btn-retry').addEventListener('click', submitSurvey);
+}
+
+// ------------------------------------------------------------
+// 總渲染入口
+// ------------------------------------------------------------
+function render() {
+  if (state.view === 'home') renderHome();
+  else if (state.view === 'survey') renderSurvey();
+  else if (state.view === 'submitting') renderSubmitting();
+  else if (state.view === 'done') renderDone();
+  else if (state.view === 'error') renderErrorScreen();
+}
+
+render();
