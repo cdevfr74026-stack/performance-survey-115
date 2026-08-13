@@ -256,10 +256,10 @@ const EMPLOYEE_SURVEY = [
         label: '如果您覺得時間安排有問題，最卡的環節是哪個？（可複選）',
         required: true,
         options: [
-          { label: '員工自評撰寫時間不夠', value: '員工自評撰寫時間不夠' },
-          { label: '績效面談排程困難', value: '績效面談排程困難' },
-          { label: '等待主管評分的時間太長', value: '等待主管評分的時間太長' },
-          { label: '表單/系統操作花太多時間', value: '表單/系統操作花太多時間' }
+          { label: '員工自評撰寫時間不夠', value: '員工自評撰寫時間不夠', key: 'self_eval_time' },
+          { label: '績效面談排程困難', value: '績效面談排程困難', key: 'interview_schedule' },
+          { label: '等待主管評分的時間太長', value: '等待主管評分的時間太長', key: 'wait_manager' },
+          { label: '表單/系統操作花太多時間', value: '表單/系統操作花太多時間', key: 'system_time' }
         ],
         other: true
       },
@@ -332,11 +332,11 @@ const Q_RATING_DIFFICULTY = (qcode) => ({
   label: '您在評分時，覺得最困難的部分是什麼？（可複選）',
   required: true,
   options: [
-    { label: '不確定怎麼區分相鄰等級', value: '不確定怎麼區分相鄰等級' },
-    { label: '擔心評太高或太低會有後果', value: '擔心評太高或太低會有後果' },
-    { label: '不確定評分結果會怎麼被使用', value: '不確定評分結果會怎麼被使用' },
-    { label: '覺得某些評分項目和部屬實際工作不太相關', value: '覺得某些評分項目和部屬實際工作不太相關' },
-    { label: '手上案例不夠，不確定怎麼給分', value: '手上案例不夠，不確定怎麼給分' }
+    { label: '不確定怎麼區分相鄰等級', value: '不確定怎麼區分相鄰等級', key: 'grade_boundary' },
+    { label: '擔心評太高或太低會有後果', value: '擔心評太高或太低會有後果', key: 'consequence_worry' },
+    { label: '不確定評分結果會怎麼被使用', value: '不確定評分結果會怎麼被使用', key: 'usage_unclear' },
+    { label: '覺得某些評分項目和部屬實際工作不太相關', value: '覺得某些評分項目和部屬實際工作不太相關', key: 'relevance_low' },
+    { label: '手上案例不夠，不確定怎麼給分', value: '手上案例不夠，不確定怎麼給分', key: 'insufficient_cases' }
   ],
   other: true
 });
@@ -448,11 +448,11 @@ const MANAGER_SURVEY = [
         label: '如果您覺得時間安排有問題，最卡的環節是哪個？（可複選）',
         required: true,
         options: [
-          { label: '員工自評撰寫時間不夠', value: '員工自評撰寫時間不夠' },
-          { label: '主管評分時間不夠', value: '主管評分時間不夠' },
-          { label: '績效面談排程困難', value: '績效面談排程困難' },
-          { label: '等待二層主管評分的時間太長', value: '等待二層主管評分的時間太長' },
-          { label: '表單/系統操作花太多時間', value: '表單/系統操作花太多時間' }
+          { label: '員工自評撰寫時間不夠', value: '員工自評撰寫時間不夠', key: 'self_eval_time' },
+          { label: '主管評分時間不夠', value: '主管評分時間不夠', key: 'manager_review_time' },
+          { label: '績效面談排程困難', value: '績效面談排程困難', key: 'interview_schedule' },
+          { label: '等待二層主管評分的時間太長', value: '等待二層主管評分的時間太長', key: 'wait_l2manager' },
+          { label: '表單/系統操作花太多時間', value: '表單/系統操作花太多時間', key: 'system_time' }
         ],
         other: true
       },
@@ -540,11 +540,11 @@ const L1MANAGER_SURVEY = [
         label: '如果您覺得時間安排有問題，最卡的環節是哪個？（可複選）',
         required: true,
         options: [
-          { label: '員工自評撰寫時間不夠', value: '員工自評撰寫時間不夠' },
-          { label: '主管評分時間不夠', value: '主管評分時間不夠' },
-          { label: '績效面談排程困難', value: '績效面談排程困難' },
-          { label: '等待二層主管評分的時間太長', value: '等待二層主管評分的時間太長' },
-          { label: '表單/系統操作花太多時間', value: '表單/系統操作花太多時間' }
+          { label: '員工自評撰寫時間不夠', value: '員工自評撰寫時間不夠', key: 'self_eval_time' },
+          { label: '主管評分時間不夠', value: '主管評分時間不夠', key: 'manager_review_time' },
+          { label: '績效面談排程困難', value: '績效面談排程困難', key: 'interview_schedule' },
+          { label: '等待二層主管評分的時間太長', value: '等待二層主管評分的時間太長', key: 'wait_l2manager' },
+          { label: '表單/系統操作花太多時間', value: '表單/系統操作花太多時間', key: 'system_time' }
         ],
         other: true
       },

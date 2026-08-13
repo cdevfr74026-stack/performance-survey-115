@@ -48,6 +48,14 @@ function currentSection() {
   return state.sections[secIdx];
 }
 
+// 選項值可能是數字（scale 題型）或字串，HTML 表單元件送回來的一律是字串，
+// 這裡統一轉成字串再比較，避免「數字 4」跟「文字 "4"」被誤判成不相等。
+// 注意：null（例如「我是第一年，無法比較」選項）轉成空字串 ''，
+// 但「尚未作答」是 undefined，兩者必須分開處理，否則會誤判成該選項已被選取。
+function valToStr(v) {
+  return v === null ? '' : String(v);
+}
+
 function escapeHtml(str) {
   if (str === undefined || str === null) return '';
   return String(str)
@@ -117,7 +125,7 @@ function renderQuestion(q) {
       bodyHtml = `
         <select class="field-select" data-field="${q.field}" aria-describedby="${errorMsg ? 'err-' + q.field : ''}">
           <option value="" disabled ${val ? '' : 'selected'}>${escapeHtml(q.placeholder || '請選擇')}</option>
-          ${q.options.map(o => `<option value="${escapeHtml(o.value)}" ${val === o.value ? 'selected' : ''}>${escapeHtml(o.label)}</option>`).join('')}
+          ${q.options.map(o => `<option value="${escapeHtml(o.value)}" ${valToStr(val) === valToStr(o.value) ? 'selected' : ''}>${escapeHtml(o.label)}</option>`).join('')}
         </select>
       `;
       break;
@@ -129,7 +137,7 @@ function renderQuestion(q) {
         <div class="option-list" role="radiogroup" aria-describedby="${errorMsg ? 'err-' + q.field : ''}">
           ${q.options.map((o, i) => {
             const optId = `${q.field}__${i}`;
-            const checked = val === o.value ? 'checked' : '';
+            const checked = (val !== undefined) && (valToStr(val) === valToStr(o.value)) ? 'checked' : '';
             return `
               <label class="option-item" for="${optId}">
                 <input type="radio" id="${optId}" name="${q.field}" value="${escapeHtml(o.value)}" data-field="${q.field}" data-type="radio" ${checked} />
@@ -333,8 +341,13 @@ function validateCurrentSection() {
     const val = state.answers[q.field];
     let empty = false;
 
-    if (q.type === 'select' || q.type === 'radio' || q.type === 'scale') {
+    if (q.type === 'select') {
+      // select 的預設（尚未選擇）狀態值就是空字串，維持原本判斷方式
       empty = val === undefined || val === null || val === '';
+    } else if (q.type === 'radio' || q.type === 'scale') {
+      // scale 題型可能有選項的值本身就是空字串（例如「我是第一年，無法比較」），
+      // 所以只用「有沒有作答過」（undefined）來判斷，不能用是否為空字串判斷。
+      empty = val === undefined;
     } else if (q.type === 'checkbox') {
       const arr = Array.isArray(val) ? val : [];
       const otherChecked = state.answers[q.field + '_other_checked'] === true;
@@ -412,7 +425,7 @@ function buildPayload() {
       const raw = state.answers[q.field];
 
       if (q.type === 'scale') {
-        const opt = q.options.find(o => o.value === raw);
+        const opt = (raw !== undefined) ? q.options.find(o => valToStr(o.value) === valToStr(raw)) : undefined;
         payload[q.field + '_label'] = opt ? opt.label : '';
         payload[q.field + '_score'] = opt && opt.value !== null ? opt.value : '';
       } else if (q.type === 'checkbox') {
@@ -422,6 +435,16 @@ function buildPayload() {
         if (otherChecked && otherText) arr.push('其他：' + otherText);
         payload[q.field] = arr.join('；');
         payload[q.field + '_other_text'] = otherChecked ? otherText : '';
+
+        // 每個選項各自獨立一欄，勾選=1、未勾選=0，方便直接加總/計數，
+        // 不需要再對合併文字欄位做文字比對。
+        q.options.forEach(o => {
+          if (!o.key) return; // 保險：沒設定 key 的選項就不特別拆欄位
+          payload[q.field + '__' + o.key] = raw && Array.isArray(raw) && raw.includes(o.value) ? 1 : 0;
+        });
+        if (q.other) {
+          payload[q.field + '__other_flag'] = otherChecked ? 1 : 0;
+        }
       } else {
         payload[q.field] = raw !== undefined && raw !== null ? raw : '';
       }
