@@ -14,9 +14,9 @@ const APP_ROOT = document.getElementById('app');
 // ------------------------------------------------------------
 const state = {
   view: 'home',        // 'home' | 'survey' | 'submitting' | 'done' | 'error'
-  identity: null,       // 'employee' | 'manager' | 'l1manager'
+  identity: null,       // 'employee' | 'junior_manager' | 'senior_manager'
   sections: [],          // 該身分對應的 section 陣列
-  visibleSectionIdx: [], // 依 skipIf 條件計算出目前可見的 section 索引清單
+  visibleSectionIdx: [], // 依 showIf 條件計算出目前可見的 section 索引清單
   currentStep: 0,        // 目前在 visibleSectionIdx 中的第幾步
   answers: {},            // { field: value, field_other: value ... }
   errors: {}               // { field: '錯誤訊息' }
@@ -25,18 +25,18 @@ const state = {
 // ------------------------------------------------------------
 // 工具函式
 // ------------------------------------------------------------
-function evalCondition(cond, answers) {
-  if (!cond) return false;
-  const val = answers[cond.field];
-  if ('equals' in cond) return val === cond.equals;
-  if ('notEquals' in cond) return val !== cond.equals && val !== undefined;
-  return false;
+// section.showIf 是一組條件陣列，彼此為「且」的關係：
+// 全部條件都符合（answers[field] === equals）才顯示這個題組。
+// 沒有 showIf 的題組一律顯示。
+function sectionVisible(sec, answers) {
+  if (!sec.showIf || sec.showIf.length === 0) return true;
+  return sec.showIf.every(cond => answers[cond.field] === cond.equals);
 }
 
 function computeVisibleSections() {
   const list = [];
   state.sections.forEach((sec, idx) => {
-    if (sec.skipIf && evalCondition(sec.skipIf, state.answers)) return;
+    if (!sectionVisible(sec, state.answers)) return;
     list.push(idx);
   });
   state.visibleSectionIdx = list;
@@ -72,7 +72,6 @@ function renderHome() {
   APP_ROOT.innerHTML = `
     <div class="home-screen">
       <div class="home-card">
-        <div class="eyebrow">115年度績效考核流程</div>
         <h1>${escapeHtml(CONFIG.SURVEY_TITLE)}</h1>
         <p class="home-intro">${escapeHtml(CONFIG.SURVEY_INTRO)}</p>
 
@@ -250,7 +249,8 @@ function attachSurveyListeners(sec) {
       if (el.checked) {
         state.answers[el.dataset.field] = el.value;
         clearError(el.dataset.field);
-        // role_detail 變動可能影響跳題邏輯，但不在此立即重算，等使用者按下一步再重新計算
+        // 角色確認題（is_evaluator/is_evaluated/evaluator_mode）變動可能影響跳題邏輯，
+        // 但不在此立即重算，等使用者按下一步再重新計算（見 goNext 內的 computeVisibleSections）
       }
     });
   });
