@@ -505,6 +505,7 @@ function renderDone() {
       <div class="done-icon" aria-hidden="true">✓</div>
       <h2>✨ 謝謝你留下這份回饋</h2>
       <p>你的每一個想法，我們都會認真看見，\n也會成為 HR 持續優化績效考核的重要參考。\n\n謝謝你的參與與分享，\n讓我們一起把制度做得更貼近大家的需要 💛</p>
+      <p class="signature">人資部 敬上</p>
     </div>
   `;
 }
