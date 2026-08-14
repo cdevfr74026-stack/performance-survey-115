@@ -508,6 +508,13 @@ button {
   white-space: pre-line;
 }
 
+.status-screen p.signature {
+  margin-top: 16px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--navy-700);
+}
+
 .done-icon {
   width: 56px;
   height: 56px;
