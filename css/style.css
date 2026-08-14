@@ -104,6 +104,7 @@ button {
   line-height: 1.8;
   color: var(--slate-500);
   margin: 0 0 32px;
+  white-space: pre-line;
 }
 
 .identity-prompt {
@@ -504,6 +505,7 @@ button {
   color: var(--slate-500);
   max-width: 380px;
   line-height: 1.7;
+  white-space: pre-line;
 }
 
 .done-icon {
