@@ -10,11 +10,11 @@
 const CONFIG = {
   // 貼上您部署 Google Apps Script 後取得的網址
   // 範例：'https://script.google.com/macros/s/AKfycb.../exec'
-  GAS_WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbz1Gje9kfbHb5sLR1e_PbhnOXodQthOvQVMJZ1_DhpGidVBooCzHAyJ2_obKkhCIi0R/exec',
+  GAS_WEB_APP_URL: 'PASTE_YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE',
 
   // 問卷標題（首頁顯示）
-  SURVEY_TITLE: '績效面談回饋問卷',
+  SURVEY_TITLE: '🎯 115上半年績效考核回饋問卷',
 
   // 首頁說明文字
-  SURVEY_INTRO: '本問卷目的為蒐集您在本次年度績效考核過程中的實際體驗與建議，以利人資部改善明年度的考核流程。填答時間約 5–8 分鐘，所有回覆將彙整後做整體分析，不會針對個人回覆進行追蹤。'
+  SURVEY_INTRO: '我們希望透過這份問卷，聽聽你對這次績效考核與面談過程的真實感受，\n不論是值得保留的地方，或是還能更好的地方，\n都希望成為我們持續改善的方向。\n\n⏱️ 填答約需 5–8 分鐘。\n\n謝謝你願意留下回饋，\n讓我們一起把績效面談做得更好 🤝'
 };

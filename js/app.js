@@ -503,8 +503,8 @@ function renderDone() {
   APP_ROOT.innerHTML = `
     <div class="status-screen">
       <div class="done-icon" aria-hidden="true">✓</div>
-      <h2>感謝您完成填答</h2>
-      <p>您的回饋已送出，將直接用於改善明年度的績效考核流程。</p>
+      <h2>✨ 謝謝你留下這份回饋</h2>
+      <p>你的每一個想法，我們都會認真看見，\n也會成為 HR 持續優化績效考核的重要參考。\n\n謝謝你的參與與分享，\n讓我們一起把制度做得更貼近大家的需要 💛</p>
     </div>
   `;
 }
