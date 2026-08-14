@@ -6,7 +6,7 @@
  * 完成 Google Apps Script 部署後（見 README.md 步驟），
  * 把取得的 Web App 網址貼到下面 GAS_WEB_APP_URL 即可。
  * ------------------------------------------------------------
- */
+ */GAS_WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbz1Gje9kfbHb5sLR1e_PbhnOXodQthOvQVMJZ1_DhpGidVBooCzHAyJ2_obKkhCIi0R/exec',
 const CONFIG = {
   // 貼上您部署 Google Apps Script 後取得的網址
   // 範例：'https://script.google.com/macros/s/AKfycb.../exec'
