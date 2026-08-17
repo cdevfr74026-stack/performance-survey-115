@@ -172,6 +172,14 @@ const Q_SELF_EVAL_FORM_HELPFUL = (qcode) => ({
   ]
 });
 
+const Q_SELF_EVAL_CONCERN_OPEN = (qcode) => ({
+  field: 'self_eval_concern_open',
+  qcode,
+  type: 'textarea',
+  label: '在填寫自評、或面對今年考核的過程中，有沒有讓您感到不確定、擔心、或希望公司未來能說明得更清楚的地方？',
+  required: true
+});
+
 // 接受主管面談（被評核者角度）—— 三版文字相同
 const Q_INTERVIEW_RECEIVED_DURATION = (qcode) => ({
   field: 'interview_received_duration',
@@ -198,7 +206,8 @@ const Q_INTERVIEW_RECEIVED_QUALITY = (qcode) => ({
     { label: '很好，有充分的對話和回饋', value: 4 },
     { label: '還可以，但有些地方講得不夠深', value: 3 },
     { label: '不太好，感覺像是走流程', value: 2 },
-    { label: '很差 / 不願意評論', value: 1 }
+    { label: '很差', value: 1 },
+    { label: '不願意評論', value: null }
   ]
 });
 
@@ -522,7 +531,8 @@ const EMPLOYEE_SURVEY = [
     title: '第四部分｜員工自評',
     questions: [
       Q_SELF_EVAL_CLEAR('Q9'),
-      Q_SELF_EVAL_FORM_HELPFUL('Q10')
+      Q_SELF_EVAL_FORM_HELPFUL('Q10'),
+      Q_SELF_EVAL_CONCERN_OPEN('Q10a')
     ]
   },
   {
@@ -629,7 +639,8 @@ function buildManagerSurvey(opts) {
       showIf: [{ field: 'is_evaluated', equals: '是' }],
       questions: [
         Q_SELF_EVAL_CLEAR('R19'),
-        Q_SELF_EVAL_FORM_HELPFUL('R20')
+        Q_SELF_EVAL_FORM_HELPFUL('R20'),
+        Q_SELF_EVAL_CONCERN_OPEN('R20a')
       ]
     },
     {
