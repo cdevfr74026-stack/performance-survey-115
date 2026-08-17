@@ -254,7 +254,7 @@ const Q_OVERALL_IMPROVE_OPEN = (qcode) => ({
   field: 'overall_improve_open',
   qcode,
   type: 'textarea',
-  label: '如果明年只能改一件事，您最希望改的是什麼？',
+  label: '如果明年績效考核只能改一件事，您最希望改的是什麼？',
   required: true
 });
 
