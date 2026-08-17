@@ -225,7 +225,7 @@ function renderSurvey() {
       </div>
 
       <div class="survey-footer">
-        <button class="btn btn-secondary" id="btn-prev" ${isFirst ? 'disabled' : ''}>上一步</button>
+        <button class="btn btn-secondary" id="btn-prev">${isFirst ? '重新選擇身分' : '上一步'}</button>
         <button class="btn btn-primary" id="btn-next">${isLast ? '送出問卷' : '下一步'}</button>
       </div>
     </div>
@@ -380,6 +380,17 @@ function validateCurrentSection() {
 function goPrev() {
   if (state.currentStep > 0) {
     state.currentStep -= 1;
+    state.errors = {};
+    render();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } else {
+    // 在第一頁按「重新選擇身分」：回到首頁，清空本次已填寫的答案
+    state.view = 'home';
+    state.identity = null;
+    state.sections = [];
+    state.visibleSectionIdx = [];
+    state.currentStep = 0;
+    state.answers = {};
     state.errors = {};
     render();
     window.scrollTo({ top: 0, behavior: 'smooth' });
