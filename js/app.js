@@ -13,7 +13,7 @@ const APP_ROOT = document.getElementById('app');
 // 全域狀態
 // ------------------------------------------------------------
 const state = {
-  view: 'home',        // 'home' | 'survey' | 'submitting' | 'done' | 'error'
+  view: 'home',        // 'home' | 'survey' | 'submitting' | 'done' | 'error' | 'closed'
   identity: null,       // 'employee' | 'junior_manager' | 'senior_manager'
   sections: [],          // 該身分對應的 section 陣列
   visibleSectionIdx: [], // 依 showIf 條件計算出目前可見的 section 索引清單
@@ -21,6 +21,14 @@ const state = {
   answers: {},            // { field: value, field_other: value ... }
   errors: {}               // { field: '錯誤訊息' }
 };
+
+// 問卷是否已過截止時間。CONFIG.SURVEY_DEADLINE 未設定（空字串）時一律回傳 false（不設限）。
+function isDeadlinePassed() {
+  if (!CONFIG.SURVEY_DEADLINE) return false;
+  const deadline = new Date(CONFIG.SURVEY_DEADLINE);
+  if (isNaN(deadline.getTime())) return false; // 格式寫錯時，保守起見視為沒有設定截止時間
+  return new Date() > deadline;
+}
 
 // ------------------------------------------------------------
 // 工具函式
@@ -466,6 +474,15 @@ function buildPayload() {
 }
 
 function submitSurvey() {
+  if (isDeadlinePassed()) {
+    // 保險機制：使用者可能在截止前就已經打開問卷、填到最後一步才送出，
+    // 這裡在真正送出前再檢查一次，避免截止後的資料被寫進 Google Sheets。
+    state.view = 'closed';
+    render();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+  }
+
   state.view = 'submitting';
   render();
 
@@ -534,14 +551,34 @@ function renderErrorScreen() {
 }
 
 // ------------------------------------------------------------
+// 截止畫面
+// ------------------------------------------------------------
+function renderClosed() {
+  APP_ROOT.innerHTML = `
+    <div class="status-screen">
+      <div class="done-icon" aria-hidden="true">🔒</div>
+      <h2>${escapeHtml(CONFIG.SURVEY_CLOSED_TITLE || '問卷已截止')}</h2>
+      <p>${escapeHtml(CONFIG.SURVEY_CLOSED_MESSAGE || '本問卷填答期間已經結束，感謝您的關注。')}</p>
+    </div>
+  `;
+}
+
+// ------------------------------------------------------------
 // 總渲染入口
 // ------------------------------------------------------------
 function render() {
+  // 截止時間一到，除了已經完成送出、正在送出中的畫面以外，一律強制導向截止畫面，
+  // 避免使用者在截止後才點進問卷連結、或截止前開著頁面拖到截止後才送出。
+  if (isDeadlinePassed() && state.view !== 'done' && state.view !== 'submitting') {
+    state.view = 'closed';
+  }
+
   if (state.view === 'home') renderHome();
   else if (state.view === 'survey') renderSurvey();
   else if (state.view === 'submitting') renderSubmitting();
   else if (state.view === 'done') renderDone();
   else if (state.view === 'error') renderErrorScreen();
+  else if (state.view === 'closed') renderClosed();
 }
 
 render();
